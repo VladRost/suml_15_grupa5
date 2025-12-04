@@ -223,6 +223,7 @@ if menu == "🔍 Predykcja":
             validated["diabetes_stage"] = 2
             validated["family_history_diabetes"] = ""
             validated["bmi"] = 30
+            validated["Unnamed: 0"] = 0
 
             # Handle validation errors
             if errors:
@@ -232,7 +233,7 @@ if menu == "🔍 Predykcja":
                 input_data = pd.DataFrame([validated])
 
                 # Load model and make prediction
-                predictor = TabularPredictor.load('modelePPvsNPP/NPP')
+                predictor = TabularPredictor.load('modelePPvsNPP/PP')
                 prediction = predictor.predict(input_data)
                 st.session_state["show_result"] = True
                 st.success(f"✅ Wynik: Cukrzyca {'obecna' if prediction[0] == 1 else 'nieobecna'} z prawdopodobieństwem **{prediction[0]}**.")
