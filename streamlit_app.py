@@ -1,11 +1,14 @@
 import streamlit as st
+import pandas as pd
+from autogluon.tabular import TabularDataset, TabularPredictor
 
 # -----------------------------------------
 # FUNKCJE POMOCNICZE
 # -----------------------------------------
 DEFAULTS = {
+"family_history_diabetes": "",
+    "bmi": "",
     "age": "",
-    "activity": "",
     "whr": "",
     "sbp": "",
     "dbp": "",
@@ -16,25 +19,50 @@ DEFAULTS = {
     "insulin": "",
     "hba1c": "",
     "score": "",
+    "gender": "",
+    "ethnicity": "",
+    "education_level": "",
+    "income_level": "",
+    "employment_status": "",
+    "smoking_status": "",
+    "physical_activity_minutes_per_week": "",
+    "diet_score": "",
+    "sleep_hours_per_day": "",
+    "screen_time_hours_per_day": "",
+    "family_history_diabetes": "",
+    "hypertension_history": "",
+    "cardiovascular_history": "",
+    "bmi": "",
+    "waist_to_hip_ratio": "",
+    "systolic_bp": "",
+    "diastolic_bp": "",
+    "heart_rate": "",
+    "cholesterol_total": "",
+    "glucose_fasting": "",
+    "glucose_postprandial": "",
+    "insulin_level": "",
+    "diabetes_risk_score": "",
+    "diabetes_stage": "",
 }
 
 NUMERIC_FIELDS = [
     "age", "activity", "whr", "sbp", "dbp", "hr", "hdl", "ldl", "tg", "insulin", "hba1c"
 ]
 
+# Function to validate numeric inputs
 def validate_number(value, field_name):
-    if value.strip() == "":
+    if value == 0:
         return None, f"Pole '{field_name}' nie może być puste."
     try:
         return float(value), None
     except ValueError:
         return None, f"Pole '{field_name}' musi być liczbą."
 
+# Reset inputs to defaults
 def reset_inputs():
     for key, val in DEFAULTS.items():
         st.session_state[key] = val
     st.session_state["show_result"] = False
-
 
 # -----------------------------------------
 # KONFIGURACJA STRONY
@@ -76,69 +104,53 @@ menu = st.sidebar.radio("📋 Nawigacja", ["🏠 Wprowadzenie", "🔍 Predykcja"
 # -----------------------------------------
 # STRONA 1 – WPROWADZENIE
 # -----------------------------------------
-if menu == "🏠 Wprowadzenie":
-    st.title("💙 Witamy w aplikacji do oceny ryzyka cukrzycy")
-    st.markdown("""
-    ### 👋 Wstęp  
-    Aplikacja ocenia **orientacyjne prawdopodobieństwo wystąpienia cukrzycy** 
-    na podstawie danych użytkownika.  
-    """)
-
-# -----------------------------------------
-# STRONA 2 – PREDYKCJA
-# -----------------------------------------
 if menu == "🔍 Predykcja":
     for key, val in DEFAULTS.items():
         if key not in st.session_state:
             st.session_state[key] = val
-
-
     if "show_result" not in st.session_state:
         st.session_state["show_result"] = False
 
     st.title("🔮 Predykcja ryzyka cukrzycy")
 
+    # Collecting Data Using Different Widgets
     st.markdown("## 🧍 Dane demograficzne")
     col_d1, col_d2, col_d3 = st.columns(3)
 
     with col_d1:
-        gender = st.selectbox("Płeć", ["Female", "Male", "Other"])
+        gender = st.selectbox("Płeć", ["Female", "Male", "Other"], key="gender")
         age = st.text_input("Wiek", key="age")
 
     with col_d2:
-        education_level = st.selectbox("Poziom edukacji",
-                                       ["Highschool", "Graduate", "Postgraduate", "No formal"])
-        ethnicity = st.selectbox("Grupa etniczna",
-                                 ["White", "Hispanic", "Black", "Asian", "Other"])
+        education_level = st.selectbox("Poziom edukacji", ["Highschool", "Graduate", "Postgraduate", "No formal"], key="education_level")
+        ethnicity = st.selectbox("Grupa etniczna", ["White", "Hispanic", "Black", "Asian", "Other"], key="ethnicity")
 
     with col_d3:
-        employment_status = st.selectbox("Status zatrudnienia",
-                                         ["Employed", "Retired", "Unemployed", "Student"])
-        income_level = st.selectbox("Poziom dochodów",
-                                    ["Middle", "Lower-Middle", "Upper-Middle", "Low", "High"])
+        employment_status = st.selectbox("Status zatrudnienia", ["Employed", "Retired", "Unemployed", "Student"], key="employment_status")
+        income_level = st.selectbox("Poziom dochodów", ["Middle", "Lower-Middle", "Upper-Middle", "Low", "High"], key="income_level")
 
     st.markdown("---")
     st.markdown("## 🏃 Styl życia")
 
     col_l1, col_l2, col_l3 = st.columns(3)
     with col_l1:
-        activity = st.text_input("Aktywność fizyczna (min/tydzień)", key="activity")
-        diet = st.slider("Wynik diety", 0, 10, 5)
+        activity = st.slider("Aktywność fizyczna (min/tydzień)", 0, 1000, 300, key="activity")
+        diet = st.slider("Wynik diety", 0, 10, 5, key="diet_score")
     with col_l2:
-        alcohol = st.slider("Spożycie alkoholu tygodniowo", 0, 7, 0)
-        sleep = st.slider("Godziny snu dziennie", 0, 24, 8)
+        alcohol = st.slider("Spożycie alkoholu tygodniowo", 0, 7, 0, key="alcohol_consumption_per_week")
+        sleep = st.slider("Godziny snu dziennie", 0, 24, 8, key="sleep_hours_per_day")
     with col_l3:
-        smoking_status = st.selectbox("Status palenia", ["Never", "Current", "Former"])
-        screen = st.slider("Godziny przed ekranem dziennie", 0, 24, 4)
+        smoking_status = st.selectbox("Status palenia", ["Never", "Current", "Former"], key="smoking_status")
+        screen = st.slider("Godziny przed ekranem dziennie", 0, 24, 4, key="screen_time_hours_per_day")
 
     st.markdown("---")
     st.markdown("## 🩺 Historia medyczna")
 
     col_h1, col_h2, col_h3 = st.columns(3)
     with col_h1:
-        hypertension = st.selectbox("Historia nadciśnienia", ["0", "1"])
+        hypertension = st.selectbox("Historia nadciśnienia", ["0", "1"], key="hypertension_history")
     with col_h2:
-        cardio = st.selectbox("Choroby sercowo-naczyniowe", ["0", "1"])
+        cardio = st.selectbox("Choroby sercowo-naczyniowe", ["0", "1"], key="cardiovascular_history")
     with col_h3:
         whr = st.text_input("Wskaźnik talii do bioder (WHR)", key="whr")
 
@@ -166,7 +178,7 @@ if menu == "🔍 Predykcja":
     st.markdown("## 📊 Ogólny wynik ryzyka")
     score = st.text_input("Wartość indeksu ryzyka", key="score")
 
-    st.markdown("---")
+    # Button to trigger prediction
     col_btn1, col_btn2 = st.columns(2)
 
     with col_btn1:
@@ -182,18 +194,53 @@ if menu == "🔍 Predykcja":
                 else:
                     validated[field] = val
 
+            # Collecting all data, including sliders and checkboxes
+            validated["gender"] = gender
+            validated["ethnicity"] = ethnicity
+            validated["education_level"] = education_level
+            validated["income_level"] = income_level
+            validated["employment_status"] = employment_status
+            validated["smoking_status"] = smoking_status
+            validated["alcohol_consumption_per_week"] = alcohol
+            validated["physical_activity_minutes_per_week"] = activity
+            validated["diet_score"] = diet
+            validated["sleep_hours_per_day"] = sleep
+            validated["screen_time_hours_per_day"] = screen
+            validated["hypertension_history"] = hypertension
+            validated["cardiovascular_history"] = cardio
+            validated["waist_to_hip_ratio"] = whr
+            validated["systolic_bp"] = sbp
+            validated["diastolic_bp"] = dbp
+            validated["heart_rate"] = hr
+            validated["cholesterol_total"] = 239
+            validated["hdl_cholesterol"] = hdl
+            validated["ldl_cholesterol"] = ldl
+            validated["triglycerides"] = tg
+            validated["glucose_fasting"] = 136
+            validated["glucose_postprandial"] = 236
+            validated["insulin_level"] = insulin
+            validated["diabetes_risk_score"] = score
+            validated["diabetes_stage"] = 2
+            validated["family_history_diabetes"] = ""
+            validated["bmi"] = 30
+
+            # Handle validation errors
             if errors:
                 for e in errors:
                     st.error(e)
             else:
+                input_data = pd.DataFrame([validated])
+
+                # Load model and make prediction
+                predictor = TabularPredictor.load('modelePPvsNPP/NPP')
+                prediction = predictor.predict(input_data)
                 st.session_state["show_result"] = True
+                st.success(f"✅ Wynik: Cukrzyca {'obecna' if prediction[0] == 1 else 'nieobecna'} z prawdopodobieństwem **{prediction[0]}**.")
 
     with col_btn2:
         if st.button("🧹 Wyczyść dane"):
-            for key in list(st.session_state.keys()):
-                del st.session_state[key]
+            reset_inputs()
             st.rerun()
 
     if st.session_state.get("show_result"):
         st.markdown("---")
-        st.success("✅ **Wynik przykładowy:** Cukrzyca obecna z prawdopodobieństwem **67%**.")
