@@ -6,10 +6,31 @@ from autogluon.tabular import TabularDataset, TabularPredictor
 # FUNKCJE POMOCNICZE
 # -----------------------------------------
 DEFAULTS = {
-"family_history_diabetes": "",
-    "bmi": "",
+    # ─── Dane demograficzne ─────────────────────────────
     "age": "",
+    "gender": "Female",
+    "ethnicity": "White",
+    "education_level": "Highschool",
+    "income_level": "Middle",
+    "employment_status": "Employed",
+
+    # ─── Styl życia (SLIDERY → LICZBY) ──────────────────
+    "activity": 300,  # <-- DODANE (bo slider ma key="activity")
+    "diet_score": 5,
+    "sleep_hours_per_day": 8,
+    "screen_time_hours_per_day": 4,
+    "alcohol_consumption_per_week": 0,
+    "smoking_status": "Never",
+
+    # ─── Historia medyczna ──────────────────────────────
+    "family_history_diabetes": "0",
+    "hypertension_history": "0",
+    "cardiovascular_history": "0",
+
+    # ─── Parametry antropometryczne ─────────────────────
     "whr": "",
+
+    # ─── Parametry kliniczne (text_input → liczby) ──────
     "sbp": "",
     "dbp": "",
     "hr": "",
@@ -19,50 +40,36 @@ DEFAULTS = {
     "insulin": "",
     "hba1c": "",
     "score": "",
-    "gender": "",
-    "ethnicity": "",
-    "education_level": "",
-    "income_level": "",
-    "employment_status": "",
-    "smoking_status": "",
-    "physical_activity_minutes_per_week": "",
-    "diet_score": "",
-    "sleep_hours_per_day": "",
-    "screen_time_hours_per_day": "",
-    "family_history_diabetes": "",
-    "hypertension_history": "",
-    "cardiovascular_history": "",
-    "bmi": "",
-    "waist_to_hip_ratio": "",
-    "systolic_bp": "",
-    "diastolic_bp": "",
-    "heart_rate": "",
-    "cholesterol_total": "",
-    "glucose_fasting": "",
-    "glucose_postprandial": "",
-    "insulin_level": "",
-    "diabetes_risk_score": "",
-    "diabetes_stage": "",
+
+    # ─── UI ─────────────────────────────────────────────
+    "show_result": False,
 }
 
+# Walidujemy tylko to, co użytkownik wpisuje jako tekst i ma być liczbą
 NUMERIC_FIELDS = [
-    "age", "activity", "whr", "sbp", "dbp", "hr", "hdl", "ldl", "tg", "insulin", "hba1c"
+    "age", "whr", "sbp", "dbp", "hr", "hdl", "ldl", "tg", "insulin", "hba1c", "score"
 ]
 
 # Function to validate numeric inputs
 def validate_number(value, field_name):
-    if value == 0:
+    if value is None or (isinstance(value, str) and value.strip() == ""):
         return None, f"Pole '{field_name}' nie może być puste."
     try:
         return float(value), None
     except ValueError:
         return None, f"Pole '{field_name}' musi być liczbą."
 
+
 # Reset inputs to defaults
 def reset_inputs():
     for key, val in DEFAULTS.items():
         st.session_state[key] = val
     st.session_state["show_result"] = False
+
+
+def reset_inputs():
+    st.session_state.clear()
+    st.session_state.update(DEFAULTS)
 
 # -----------------------------------------
 # KONFIGURACJA STRONY
@@ -74,23 +81,38 @@ st.set_page_config(page_title="Predykcja Cukrzycy", layout="wide")
 # -----------------------------------------
 page_bg = """
 <style>
-[data-testid="stAppViewContainer"] {
-    background-image: linear-gradient(135deg, #e6f0ff, #f9f9ff);
-    background-attachment: fixed;
-    font-family: 'Segoe UI', sans-serif;
-    color: #222;
+[data-testid="stAppViewContainer"]{
+  background: linear-gradient(135deg,#e6f0ff,#f9f9ff);
+  background-attachment: fixed;
+  font-family: "Segoe UI", sans-serif;
+  color:#222;
 }
-[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #002b5b, #004080);
-    color: white;
+
+/* Sidebar: tło + biały tekst (całość) */
+[data-testid="stSidebar"]{
+  background: linear-gradient(180deg,#002b5b,#004080);
 }
-div.stButton > button {
-    background-color: #004080;
-    color: white;
-    border-radius: 10px;
-    border: none;
-    padding: 0.6em 1.4em;
-    font-weight: 600;
+[data-testid="stSidebar"], [data-testid="stSidebar"] *{
+  color:#fff !important;
+}
+
+/* Etykiety nad polami: czarne */
+div[data-testid="stWidgetLabel"] > label, label{
+  color:#000 !important;
+  font-weight:600;
+}
+
+/* Przyciski: niebieskie tło + biały tekst (w tym emoji/span) */
+div.stButton > button{
+  background:#004080;
+  border:0;
+  border-radius:10px;
+  padding:.6em 1.4em;
+  font-weight:600;
+}
+div.stButton > button, div.stButton > button *{
+  color:#fff !important;
+  fill:#fff !important;
 }
 </style>
 """
@@ -103,6 +125,17 @@ menu = st.sidebar.radio("📋 Nawigacja", ["🏠 Wprowadzenie", "🔍 Predykcja"
 
 # -----------------------------------------
 # STRONA 1 – WPROWADZENIE
+# -----------------------------------------
+if menu == "🏠 Wprowadzenie":
+    st.title("💙 Witamy w aplikacji do oceny ryzyka cukrzycy")
+    st.markdown("""
+    ### 👋 Wstęp  
+    Aplikacja ocenia **orientacyjne prawdopodobieństwo wystąpienia cukrzycy** 
+    na podstawie danych użytkownika.  
+    """)
+
+# -----------------------------------------
+# STRONA 2 – PREDYKCJA
 # -----------------------------------------
 if menu == "🔍 Predykcja":
     for key, val in DEFAULTS.items():
@@ -134,14 +167,14 @@ if menu == "🔍 Predykcja":
 
     col_l1, col_l2, col_l3 = st.columns(3)
     with col_l1:
-        activity = st.slider("Aktywność fizyczna (min/tydzień)", 0, 1000, 300, key="activity")
-        diet = st.slider("Wynik diety", 0, 10, 5, key="diet_score")
+        activity = st.slider("Aktywność fizyczna (min/tydzień)", 0, 1000, key="activity")
+        diet = st.slider("Wynik diety", 0, 10, key="diet_score")
     with col_l2:
-        alcohol = st.slider("Spożycie alkoholu tygodniowo", 0, 7, 0, key="alcohol_consumption_per_week")
-        sleep = st.slider("Godziny snu dziennie", 0, 24, 8, key="sleep_hours_per_day")
+        alcohol = st.slider("Spożycie alkoholu tygodniowo", 0, 7, key="alcohol_consumption_per_week")
+        sleep = st.slider("Godziny snu dziennie", 0, 24, key="sleep_hours_per_day")
     with col_l3:
         smoking_status = st.selectbox("Status palenia", ["Never", "Current", "Former"], key="smoking_status")
-        screen = st.slider("Godziny przed ekranem dziennie", 0, 24, 4, key="screen_time_hours_per_day")
+        screen = st.slider("Godziny przed ekranem dziennie", 0, 24, key="screen_time_hours_per_day")
 
     st.markdown("---")
     st.markdown("## 🩺 Historia medyczna")
@@ -184,7 +217,7 @@ if menu == "🔍 Predykcja":
     with col_btn1:
         if st.button("🔎 Przewidź ryzyko"):
             errors = []
-            validated = {}
+            validated_numeric = {}
 
             for field in NUMERIC_FIELDS:
                 value = st.session_state.get(field, "")
@@ -192,55 +225,61 @@ if menu == "🔍 Predykcja":
                 if err:
                     errors.append(err)
                 else:
-                    validated[field] = val
+                    validated_numeric[field] = val
 
-            # Collecting all data, including sliders and checkboxes
-            validated["gender"] = gender
-            validated["ethnicity"] = ethnicity
-            validated["education_level"] = education_level
-            validated["income_level"] = income_level
-            validated["employment_status"] = employment_status
-            validated["smoking_status"] = smoking_status
-            validated["alcohol_consumption_per_week"] = alcohol
-            validated["physical_activity_minutes_per_week"] = activity
-            validated["diet_score"] = diet
-            validated["sleep_hours_per_day"] = sleep
-            validated["screen_time_hours_per_day"] = screen
-            validated["hypertension_history"] = hypertension
-            validated["cardiovascular_history"] = cardio
-            validated["waist_to_hip_ratio"] = whr
-            validated["systolic_bp"] = sbp
-            validated["diastolic_bp"] = dbp
-            validated["heart_rate"] = hr
-            validated["cholesterol_total"] = 239
-            validated["hdl_cholesterol"] = hdl
-            validated["ldl_cholesterol"] = ldl
-            validated["triglycerides"] = tg
-            validated["glucose_fasting"] = 136
-            validated["glucose_postprandial"] = 236
-            validated["insulin_level"] = insulin
-            validated["diabetes_risk_score"] = score
-            validated["diabetes_stage"] = 2
-            validated["family_history_diabetes"] = ""
-            validated["bmi"] = 30
-            validated["Unnamed: 0"] = 0
-
-            # Handle validation errors
             if errors:
                 for e in errors:
                     st.error(e)
             else:
+                validated = {}
+
+                # numeryczne z text_input (już jako float)
+                validated["age"] = validated_numeric["age"]
+                validated["waist_to_hip_ratio"] = validated_numeric["whr"]
+                validated["systolic_bp"] = validated_numeric["sbp"]
+                validated["diastolic_bp"] = validated_numeric["dbp"]
+                validated["heart_rate"] = validated_numeric["hr"]
+                validated["hdl_cholesterol"] = validated_numeric["hdl"]
+                validated["ldl_cholesterol"] = validated_numeric["ldl"]
+                validated["triglycerides"] = validated_numeric["tg"]
+                validated["insulin_level"] = validated_numeric["insulin"]
+                validated["hba1c"] = validated_numeric["hba1c"]
+                validated["diabetes_risk_score"] = validated_numeric["score"]
+
+                # kategorie / slidery
+                validated["gender"] = gender
+                validated["ethnicity"] = ethnicity
+                validated["education_level"] = education_level
+                validated["income_level"] = income_level
+                validated["employment_status"] = employment_status
+                validated["smoking_status"] = smoking_status
+                validated["alcohol_consumption_per_week"] = alcohol
+                validated["physical_activity_minutes_per_week"] = activity
+                validated["diet_score"] = diet
+                validated["sleep_hours_per_day"] = sleep
+                validated["screen_time_hours_per_day"] = screen
+                validated["hypertension_history"] = hypertension
+                validated["cardiovascular_history"] = cardio
+
+                # stałe / brakujące (Twoje dotychczasowe)
+                validated["cholesterol_total"] = 239
+                validated["glucose_fasting"] = 136
+                validated["glucose_postprandial"] = 236
+                validated["diabetes_stage"] = 2
+                validated["family_history_diabetes"] = "0"
+                validated["bmi"] = 30
+                validated["Unnamed: 0"] = 0
+
                 input_data = pd.DataFrame([validated])
 
-                # Load model and make prediction
-                predictor = TabularPredictor.load('modelePPvsNPP/PP')
-                prediction = predictor.predict(input_data)
+                predictor = TabularPredictor.load("modelePPvsNPP/PP")
+                pred = predictor.predict(input_data)
+
                 st.session_state["show_result"] = True
-                st.success(f"✅ Wynik: Cukrzyca {'obecna' if prediction[0] == 1 else 'nieobecna'} z prawdopodobieństwem **{prediction[0]}**.")
+                st.success(f"✅ Wynik: Cukrzyca {'obecna' if pred.iloc[0] == 1 else 'nieobecna'} "f"z prawdopodobieństwem **{round(float(pred.iloc[0]) * 100, 2)}%**.")
 
     with col_btn2:
-        if st.button("🧹 Wyczyść dane"):
-            reset_inputs()
+        if st.button("🧹 Wyczyść dane", on_click=reset_inputs):
             st.rerun()
 
     if st.session_state.get("show_result"):
