@@ -1,0 +1,17 @@
+# IDE configs
+.vscode/
+.idea/
+
+# Virtual environments
+venv/
+env/
+.venv/
+01_eda.ipynb
+02_baseline_ml.ipynb
+diabetes_dataset_DONE.csv
+diabetes_dataset.csv
+ProgramPPvNPP.ipynb
+README.md
+requirements.txt
+baseline_dummy_simple.csv
+comparison_baseline_vs_autogluon.csv

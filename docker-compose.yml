@@ -1,0 +1,5 @@
+services:  
+  app:
+    build: .
+    image: s28602/suml_15_grupa5:0.0.2
+    ports: ["8080:8080"]
