@@ -1,3 +1,4 @@
+import joblib
 import streamlit as st
 import pandas as pd
 from autogluon.tabular import TabularDataset, TabularPredictor
@@ -273,10 +274,33 @@ if menu == "🔍 Predykcja":
                 input_data = pd.DataFrame([validated])
 
                 predictor = TabularPredictor.load("modelePPvsNPP/PP")
-                pred = predictor.predict(input_data)
+
+                scaler = joblib.load("modelePPvsNPP/PP/scaler.pkl")
+                numeric_cols = joblib.load("modelePPvsNPP/PP/numeric_cols.pkl")
+                feature_cols = joblib.load("modelePPvsNPP/PP/feature_cols.pkl")
+
+                input_data[numeric_cols] = scaler.transform(input_data[numeric_cols])
+
+                cat_cols = input_data.select_dtypes(include=["object","category"]).columns
+                input_data = pd.get_dummies(input_data, columns=cat_cols, drop_first=True)
+
+                input_data = input_data.reindex(columns=feature_cols, fill_value=0.0)
+
+                pred_label = predictor.predict(input_data).iloc[0]
+                proba = predictor.predict_proba(input_data)
+                p1 = float(proba.iloc[0, 1])
 
                 st.session_state["show_result"] = True
-                st.success(f"✅ Wynik: Cukrzyca {'obecna' if pred.iloc[0] == 1 else 'nieobecna'} "f"z prawdopodobieństwem **{round(float(pred.iloc[0]) * 100, 2)}%**.")
+                if pred_label == 1:
+                    st.error(
+                        f"🚨 Wynik: Cukrzyca {'obecna' if pred_label == 1 else 'nieobecna'} "
+                        f"z prawdopodobieństwem **{p1*100:.2f}%**."
+                    )
+                else: 
+                    st.success(
+                        f"✅ Wynik: Cukrzyca {'obecna' if pred_label == 1 else 'nieobecna'} "
+                        f"z prawdopodobieństwem **{p1*100:.2f}%**."
+                    )
 
     with col_btn2:
         if st.button("🧹 Wyczyść dane", on_click=reset_inputs):
